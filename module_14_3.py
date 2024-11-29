@@ -111,7 +111,7 @@ async def set_age(call):
     await UserState.age.set()
 
 str_warning = "Задавайте только целые числа"
-tuple_data = dict()
+age_growth_weight = dict()
 
 
 @dp.message_handler(state=UserState.age)
@@ -121,7 +121,7 @@ async def set_growth(message, state):
 
     match = re.match(r'\d{1,3}', data['age'])
     if match is not None:
-        tuple_data['age'] = int(match[0])
+        age_growth_weight['age'] = int(match[0])
         await message.answer(f"Ваш возраст: {match[0]}. Укажите свой рост:")
         await UserState.growth.set()
     else:
@@ -135,7 +135,7 @@ async def set_weight(message, state):
 
     match = re.match(r'\d{1,3}', data['growth'])
     if match is not None:
-        tuple_data['growth'] = int(match[0])
+        age_growth_weight['growth'] = int(match[0])
         await message.answer(f"Ваш рост: {match[0]}, Укажите свой вес:")
         await UserState.weight.set()
     else:
@@ -150,8 +150,8 @@ async def send_calories(message, state):
     match = re.match(r'\d{1,3}', data['weight'])
     if match is not None:
         await message.answer(f"Ваш вес: {match[0]}")
-        tuple_data['weight'] = int(match[0])
-        calories_for_male, calories_for_female = calories_calculate(tuple_data)
+        age_growth_weight['weight'] = int(match[0])
+        calories_for_male, calories_for_female = calories_calculate(age_growth_weight)
         await message.answer(f"Норма калории для мужчин: {calories_for_male}")
         await message.answer(f"Норма калории для женщин: {calories_for_female}")
         await state.finish()
