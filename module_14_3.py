@@ -6,6 +6,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.dispatcher import FSMContext
 import asyncio
 from config import *
+import re
 
 # задачу 13_6 дополнить следующим:
 # Создайте Inline меню из 4 кнопок с надписями "Product1", "Product2", "Product3", "Product4".
@@ -18,8 +19,16 @@ from config import *
 # Callback хэндлер, который реагирует на текст "product_buying" и оборачивает функцию send_confirm_message(call).
 # Функция send_confirm_message, присылает сообщение "Вы успешно приобрели продукт!"
 
+
+class UserState(StatesGroup):
+    age = State()
+    growth = State()
+    weight = State()
+
+
 bot = Bot(token=API)
 dp = Dispatcher(bot, storage=MemoryStorage())
+
 
 # В главную (обычную) клавиатуру меню добавьте кнопку "Купить".
 start_menu = ReplyKeyboardMarkup(
@@ -52,18 +61,15 @@ def calories_calculate(data):
     return calories_for_male, calories_for_female
 
 
-class UserState(StatesGroup):
-    age = State()
-    growth = State()
-    weight = State()
-
 # картинки к продуктам возьмем сразу из сети
 list_img = ['https://www.google.com/imgres?q=fallout%20png%20%D1%82%D0%B0%D0%B1%D0%BB%D0%B5%D1%82%D0%BA%D0%B8&imgurl=https%3A%2F%2Fstatic.wikia.nocookie.net%2Ffallout%2Fimages%2F6%2F68%2FFO4_Buffout.png%2Frevision%2Flatest%3Fcb%3D20220325191931%26path-prefix%3Dru&imgrefurl=https%3A%2F%2Ffallout.fandom.com%2Fru%2Fwiki%2F%25D0%2591%25D0%25B0%25D1%2584%25D1%2584%25D0%25B0%25D1%2583%25D1%2582_(Fallout_4)&docid=ucUrotmCyUGDpM&tbnid=4uQKGZrLE2RgUM&vet=12ahUKEwjhyKmE79aJAxUMLhAIHXhiDg4QM3oECBkQAA..i&w=652&h=652&hcb=2&ved=2ahUKEwjhyKmE79aJAxUMLhAIHXhiDg4QM3oECBkQAA',
             'https://www.google.com/imgres?q=fallout%20png%20%D1%82%D0%B0%D0%B1%D0%BB%D0%B5%D1%82%D0%BA%D0%B8&imgurl=https%3A%2F%2Fw7.pngwing.com%2Fpngs%2F339%2F690%2Fpng-transparent-fallout-new-vegas-fallout-3-fallout-4-video-game-antitank-mine-video-game-first-aid-supplies-first-aid-kits-thumbnail.png&imgrefurl=https%3A%2F%2Fwww.pngwing.com%2Fru%2Ffree-png-iitmj&docid=C1MHPCNXjAGiOM&tbnid=oMbMcTOPKcF3-M&vet=12ahUKEwjhyKmE79aJAxUMLhAIHXhiDg4QM3oECH8QAA..i&w=360&h=374&hcb=2&itg=1&ved=2ahUKEwjhyKmE79aJAxUMLhAIHXhiDg4QM3oECH8QAA',
             'https://www.google.com/imgres?q=fallout%20png%20%D1%82%D0%B0%D0%B1%D0%BB%D0%B5%D1%82%D0%BA%D0%B8&imgurl=https%3A%2F%2Fstatic.wikia.nocookie.net%2Ffallout%2Fimages%2F7%2F73%2FFallout4_Psycho.png%2Frevision%2Flatest%3Fcb%3D20220325192507%26path-prefix%3Dru&imgrefurl=https%3A%2F%2Ffallout.fandom.com%2Fru%2Fwiki%2F%25D0%259F%25D1%2581%25D0%25B8%25D1%2585%25D0%25BE-%25D1%2582%25D0%25B0%25D1%2582%25D1%258B&docid=06NQhpOmYchwSM&tbnid=MMK4mW7zFFLz-M&vet=12ahUKEwjhyKmE79aJAxUMLhAIHXhiDg4QM3oECBYQAA..i&w=765&h=765&hcb=2&ved=2ahUKEwjhyKmE79aJAxUMLhAIHXhiDg4QM3oECBYQAA',
             'https://www.google.com/imgres?q=fallout%20png%20%D1%82%D0%B0%D0%B1%D0%BB%D0%B5%D1%82%D0%BA%D0%B8&imgurl=https%3A%2F%2Fgs11.ru%2Fstorage%2Ffallout-4%2Ffallout4-mentats.png&imgrefurl=https%3A%2F%2Fgs11.ru%2Ffallout-4%2Fpredmety%2Fapelsinovye-mentaty&docid=LettbrlhfnGGlM&tbnid=cZxJGoySuDsNLM&vet=12ahUKEwjhyKmE79aJAxUMLhAIHXhiDg4QM3oECHcQAA..i&w=794&h=567&hcb=2&itg=1&ved=2ahUKEwjhyKmE79aJAxUMLhAIHXhiDg4QM3oECHcQAA']
 
+
 list_name_product = ["Снотворное", "Успокоитель", "Усилитель", "Умножитель"]
+
 
 @dp.message_handler(text=["Купить"])
 async def get_buying_list(message):
@@ -104,31 +110,53 @@ async def set_age(call):
     await call.answer()
     await UserState.age.set()
 
+str_warning = "Задавайте только целые числа"
+tuple_data = dict()
+
 
 @dp.message_handler(state=UserState.age)
 async def set_growth(message, state):
     await state.update_data(age=message.text)
     data = await state.get_data()
-    await message.answer(f"Ваш возраст: {data['age']}. Укажите свой рост:")
-    await UserState.growth.set()
+
+    match = re.match(r'\d{1,3}', data['age'])
+    if match is not None:
+        tuple_data['age'] = int(match[0])
+        await message.answer(f"Ваш возраст: {match[0]}. Укажите свой рост:")
+        await UserState.growth.set()
+    else:
+        await message.answer(str_warning)
 
 
 @dp.message_handler(state=UserState.growth)
 async def set_weight(message, state):
     await state.update_data(growth=message.text)
     data = await state.get_data()
-    await message.answer(f"Ваш рост: {data['growth']}, Укажите свой вес:")
-    await UserState.weight.set()
+
+    match = re.match(r'\d{1,3}', data['growth'])
+    if match is not None:
+        tuple_data['growth'] = int(match[0])
+        await message.answer(f"Ваш рост: {match[0]}, Укажите свой вес:")
+        await UserState.weight.set()
+    else:
+        await message.answer(str_warning)
 
 
 @dp.message_handler(state=UserState.weight)
 async def send_calories(message, state):
     await state.update_data(weight=message.text)
     data = await state.get_data()
-    calories_for_male, calories_for_female = calories_calculate(data)
-    await message.answer(f"Норма калории для мужчин: {calories_for_male}\n"
-                         f"Норма калории для женщин: {calories_for_female}")
-    await state.finish()
+
+    match = re.match(r'\d{1,3}', data['weight'])
+    if match is not None:
+        await message.answer(f"Ваш вес: {match[0]}")
+        tuple_data['weight'] = int(match[0])
+        calories_for_male, calories_for_female = calories_calculate(tuple_data)
+        await message.answer(f"Норма калории для мужчин: {calories_for_male}")
+        await message.answer(f"Норма калории для женщин: {calories_for_female}")
+        await state.finish()
+    else:
+        await message.answer(str_warning)
 
 
 if __name__ == "__main__":
