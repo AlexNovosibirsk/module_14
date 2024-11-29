@@ -6,12 +6,27 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.dispatcher import FSMContext
 import asyncio
 from config import *
+import re
 from crud_functions import get_all_products, is_included, add_user
 
 product = get_all_products()
 
+
+class UserState(StatesGroup):
+    age = State()
+    growth = State()
+    weight = State()
+
+
+class RegistrationState(StatesGroup):
+    username = State()
+    email = State()
+    age = State()
+
+
 bot = Bot(token=API)
 dp = Dispatcher(bot, storage=MemoryStorage())
+
 
 start_menu = ReplyKeyboardMarkup(
     keyboard=[
@@ -24,12 +39,6 @@ start_menu = ReplyKeyboardMarkup(
             KeyboardButton(text="Регистрация")
         ]
     ], resize_keyboard=True)
-
-
-class RegistrationState(StatesGroup):
-    username = State()
-    email = State()
-    age = State()
 
 
 @dp.message_handler(text=["Регистрация"])
@@ -53,7 +62,6 @@ async def set_username(message, state):
 @dp.message_handler(state=RegistrationState.email)
 async def set_email(message, state):
     await state.update_data(email=message.text)
-    data = await state.get_data()
     await message.answer("Укажите свой возраст:")
     await RegistrationState.age.set()
 
@@ -65,13 +73,6 @@ async def set_age(message, state):
     await message.answer("Регистрация прошла успешно")
     add_user(data['username'], data['email'], data['age'])
     await state.finish()
-
-
-
-
-
-
-
 
 
 inline_menu = InlineKeyboardMarkup(resize_keyboard=True)
@@ -88,12 +89,6 @@ def calories_calculate(data):
     calories_for_male = 10 * int(data['weight']) + 6.25 * int(data['growth']) + 5 * int(data['age']) + 5
     calories_for_female = 10 * int(data['weight']) + 6.25 * int(data['growth']) + 5 * int(data['age']) - 161
     return calories_for_male, calories_for_female
-
-
-class UserState(StatesGroup):
-    age = State()
-    growth = State()
-    weight = State()
 
 
 @dp.message_handler(text=["Купить"])
@@ -137,30 +132,53 @@ async def set_age(call):
     await UserState.age.set()
 
 
+str_warning = "Задавайте только целые числа"
+age_growth_weight = dict()
+
+
 @dp.message_handler(state=UserState.age)
 async def set_growth(message, state):
     await state.update_data(age=message.text)
     data = await state.get_data()
-    await message.answer(f"Ваш возраст: {data['age']}. Укажите свой рост:")
-    await UserState.growth.set()
+
+    match = re.match(r'\d{1,3}', data['age'])
+    if match is not None:
+        age_growth_weight['age'] = int(match[0])
+        await message.answer(f"Ваш возраст: {match[0]}. Укажите свой рост:")
+        await UserState.growth.set()
+    else:
+        await message.answer(str_warning)
 
 
 @dp.message_handler(state=UserState.growth)
 async def set_weight(message, state):
     await state.update_data(growth=message.text)
     data = await state.get_data()
-    await message.answer(f"Ваш рост: {data['growth']}, Укажите свой вес:")
-    await UserState.weight.set()
+
+    match = re.match(r'\d{1,3}', data['growth'])
+    if match is not None:
+        age_growth_weight['growth'] = int(match[0])
+        await message.answer(f"Ваш рост: {match[0]}, Укажите свой вес:")
+        await UserState.weight.set()
+    else:
+        await message.answer(str_warning)
 
 
 @dp.message_handler(state=UserState.weight)
 async def send_calories(message, state):
     await state.update_data(weight=message.text)
     data = await state.get_data()
-    calories_for_male, calories_for_female = calories_calculate(data)
-    await message.answer(f"Норма калории для мужчин: {calories_for_male}\n"
-                         f"Норма калории для женщин: {calories_for_female}")
-    await state.finish()
+
+    match = re.match(r'\d{1,3}', data['weight'])
+    if match is not None:
+        await message.answer(f"Ваш вес: {match[0]}")
+        age_growth_weight['weight'] = int(match[0])
+        calories_for_male, calories_for_female = calories_calculate(age_growth_weight)
+        await message.answer(f"Норма калории для мужчин: {calories_for_male}")
+        await message.answer(f"Норма калории для женщин: {calories_for_female}")
+        await state.finish()
+    else:
+        await message.answer(str_warning)
 
 
 if __name__ == "__main__":
